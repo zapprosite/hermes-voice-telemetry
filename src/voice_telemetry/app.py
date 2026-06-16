@@ -4,6 +4,9 @@ import time
 import subprocess
 import asyncio
 import redis
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from fastapi import FastAPI, Response, Request
 from typing import Dict, Any
 
@@ -29,6 +32,21 @@ from metrics_collector import get_latency_percentiles
 from structured_logger import StructuredLogger
 
 logger_sre = StructuredLogger(os.getenv("VOICE_TELEMETRY_LOG_PATH", "/home/will/.hermes/logs/voice-telemetry.log"))
+
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adiciona HTTP security headers (state da arte 2026)."""
+
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
 
 app = FastAPI(title="Hermes Voice Telemetry")
 
@@ -115,6 +133,8 @@ async def post_internal_metric(request: Request):
             redis_client.incr(f"hermes:telemetry:errors:{component}")
 
     return {"status": "ok"}
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get("/healthz")
 def get_healthz():
@@ -284,6 +304,8 @@ def get_healthz():
         media_type="application/json",
         status_code=200 if overall_ok else 503
     )
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 @app.get("/metrics")
 def get_metrics():
