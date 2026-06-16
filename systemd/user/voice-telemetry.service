@@ -1,0 +1,16 @@
+[Unit]
+Description=Voice Telemetry — /healthz + /metrics + circuit breaker
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/will/.hermes/services/voice-telemetry
+ExecStart=/home/will/.local/share/hermes-agent-next/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 4140
+Restart=always
+RestartSec=5
+Environment=VOICE_TELEMETRY_ENABLED=true
+Environment=VOICE_TELEMETRY_BIND=127.0.0.1
+Environment=VOICE_TELEMETRY_PORT=4140
+
+[Install]
+WantedBy=default.target
